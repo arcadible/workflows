@@ -7,11 +7,12 @@ permissions:
   contents: write
 
 env:
-  ARC_BIN: ${{ github.workspace }}/node_modules/.bin
   ARC_TAG: ${{ github.ref_name }}
+  ARC_MFWF: ${{ github.workspace }}/arcadible.workflow.json
+  ARC_MFGM: ${{ github.workspace }}/arcadible.game.json
 
 jobs:
-  check:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,6 +27,10 @@ jobs:
       - name: Check Workspace
         run: arc check -C "$GITHUB_WORKSPACE" -q
       - name: Install CICD
-        run: npm install @arcadible/cicd-github-release@^0.1.0 --no-save
+        run: npm install -g @arcadible/cicd-github-release@^0.1.0 --no-save
       - name: Check Tag
-        run: $ARC_BIN/arctk-assert-tag "$ARC_TAG"
+        run: arctk-assert-tag "$ARC_TAG"
+      - name: Write Manifest
+        run: |
+          arc inspect -C "$GITHUB_WORKSPACE" -r manifest:workflow > "$ARC_MFWF"
+          arc inspect -C "$GITHUB_WORKSPACE" -r manifest:game > "$ARC_MFGM"
