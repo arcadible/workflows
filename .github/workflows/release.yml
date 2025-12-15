@@ -1,0 +1,92 @@
+name: Arcadible Release
+
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    env:
+      ARC_JSON: ${{ github.workspace }}/arcadible.json
+    outputs:
+      deploy_dir: ${{ steps.puts.outputs.deploy_dir }}
+      skip_build: ${{ steps.puts.outputs.skip_build }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install CLI
+        run: npm install -g @arcadible/cli@^0.1.0 --silent
+      - name: Check Workspace
+        run: arc check -C "$GITHUB_WORKSPACE" --quiet
+      - name: Install CICD
+        run: npm install -g @arcadible/cicd-github-release@^0.1.0 --silent
+      - name: Check Tag
+        run: arctk-assert-tag "$GITHUB_REF_NAME"
+      - name: Write Manifest
+        run: arc inspect -C "$GITHUB_WORKSPACE" > "$ARC_JSON" --json
+      - name: Puts
+        id: puts
+        run: |
+          arctk-put-deploy-dir "$ARC_JSON"
+          arctk-put-skip-build "$ARC_JSON"
+  build:
+    needs: [setup]
+    runs-on: ubuntu-latest
+    env:
+      ARC_BUILD: ${{ github.workspace }}/${{ needs.setup.outputs.deploy_dir }}
+      ARC_ZIP: ${{ github.workspace }}/${{ github.event.repository.name }}.${{ github.ref_name }}.zip
+    outputs:
+      prerelease: ${{ steps.puts.outputs.prerelease }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install CLI
+        run: npm install -g @arcadible/cli@^0.1.0 --silent
+      - name: Install CICD
+        run: npm install -g @arcadible/cicd-github-release@^0.1.0 --silent
+      - name: Puts
+        id: puts
+        run: arctk-put-prerelease "$GITHUB_REF_NAME"
+      - name: Build
+        if: needs.setup.outputs.skip_build == 'false'
+        run: arctk-build "$GITHUB_WORKSPACE"
+      - name: Check Build
+        run: arctk-assert-dir "$ARC_BUILD"
+      - name: Pack
+        run: arc pack -C "$GITHUB_WORKSPACE" --out "$ARC_ZIP" --quiet
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: ${{ env.ARC_ZIP }}
+  publish:
+    needs: [setup, build]
+    runs-on: ubuntu-latest
+    env:
+      ARC_DIST: ${{ github.workspace }}/.arcadible-dist
+    steps:
+      - name: Download
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: ${{ env.ARC_DIST }}
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.event.repository.name }} ${{ github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          prerelease: ${{ needs.build.outputs.prerelease }}
+          files: ${{ env.ARC_DIST }}/*
