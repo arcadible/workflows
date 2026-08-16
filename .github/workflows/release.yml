@@ -1,0 +1,98 @@
+name: Arcadible Release
+
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    env:
+      ARC_JSON: ${{ github.workspace }}/arcadible.json
+    outputs:
+      version: ${{ steps.define.outputs.version }}
+      prerelease: ${{ steps.define.outputs.prerelease }}
+      build: ${{ steps.define.outputs.build }}
+      deploy_dir: ${{ steps.define.outputs.deploy_dir }}
+      cache: ${{ steps.define.outputs.cache }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install
+        run: |
+          npm install -g @arcadible/github-release-tools@^0.1.0 --silent
+          npm install -g arcadible@^0.1.0 --silent
+      - name: Validate
+        run: arc validate -C "$GITHUB_WORKSPACE" --quiet
+      - name: Inspect
+        run: arc inspect -C "$GITHUB_WORKSPACE" > "$ARC_JSON" --json
+      - name: Assert Tag
+        run: arctool-assert-tag "$ARC_JSON" "$GITHUB_REF_NAME"
+      - name: Define
+        id: define
+        run: |
+          arctool-put-version "$ARC_JSON"
+          arctool-put-prerelease "$ARC_JSON"
+          arctool-put-build "$ARC_JSON"
+          arctool-put-deploy-dir "$ARC_JSON"
+          arctool-put-cache "$ARC_JSON"
+  build:
+    needs: [setup]
+    runs-on: ubuntu-latest
+    env:
+      ARC_PUBLIC: ${{ github.workspace }}/${{ needs.setup.outputs.deploy_dir }}
+      ARC_ZIP: ${{ github.workspace }}/${{ github.event.repository.name }}-v${{ needs.setup.outputs.version }}.zip
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node (cached)
+        if: needs.setup.outputs.cache != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: ${{ needs.setup.outputs.cache }}
+      - name: Setup Node
+        if: needs.setup.outputs.cache == ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install
+        run: |
+          npm install -g @arcadible/github-release-tools@^0.1.0 --silent
+          npm install -g arcadible@^0.1.0 --silent
+      - name: Build
+        if: needs.setup.outputs.build != ''
+        run: arc build -C "$GITHUB_WORKSPACE" --quiet
+      - name: Assert Dir
+        run: arctool-assert-dir "$ARC_PUBLIC"
+      - name: Pack
+        run: arc pack -C "$GITHUB_WORKSPACE" --output "$ARC_ZIP" --quiet
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: ${{ env.ARC_ZIP }}
+  publish:
+    needs: [setup, build]
+    runs-on: ubuntu-latest
+    env:
+      ARC_DIST: ${{ github.workspace }}/.arcadible-dist
+    steps:
+      - name: Download
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: ${{ env.ARC_DIST }}
+      - name: Release
+        uses: arcadible/release-action@v3
+        with:
+          name: ${{ github.event.repository.name }} v${{ needs.setup.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          prerelease: ${{ needs.setup.outputs.prerelease }}
+          files: ${{ env.ARC_DIST }}/*
