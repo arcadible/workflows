@@ -66,6 +66,9 @@ jobs:
         run: |
           npm install -g @arcadible/github-release-tools@^0.1.0 --silent
           npm install -g arcadible@^0.1.0 --silent
+      - name: Install Dependencies
+        if: needs.setup.outputs.build != '' && needs.setup.outputs.cache != ''
+        run: arctool-install-deps "$GITHUB_WORKSPACE"
       - name: Build
         if: needs.setup.outputs.build != ''
         run: arc build -C "$GITHUB_WORKSPACE" --quiet
