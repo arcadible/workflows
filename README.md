@@ -23,7 +23,7 @@ A reusable GitHub Actions workflow that builds a release of your game on [Arcadi
 
 ## Usage
 
-Add `.github/workflows/arcadible-release.yml` to your game's repository. Every starter from `arc init -t` already has it.
+Add `.github/workflows/arcadible-release.yml` to your game's repository. Every starter from `arc init` already has it.
 
 ```yaml
 name: Arcadible Release
@@ -47,7 +47,7 @@ Then, with the [Arcadible GitHub App](https://github.com/apps/arcadible) install
 arc deploy git
 ```
 
-`arc deploy git` pushes the tag `arcadible/release/v<version>` for your manifest's version, and waits for the release.
+`arc deploy git` pushes the tag `arcadible/release/v<version>` for your manifest's version, then waits until the release is published or fails, logged in or not.
 
 ## What it does
 
