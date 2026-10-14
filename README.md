@@ -51,13 +51,13 @@ arc deploy git
 
 ## What it does
 
-| Step     | What happens                                                                                  |
-| -------- | --------------------------------------------------------------------------------------------- |
-| Validate | `arc validate`, with the same rules Arcadible uses, and checks that the tag matches `version` |
-| Install  | Installs your dependencies from your lockfile, when there's a build                           |
-| Build    | `arc build`, which runs your project's build                                                  |
-| Pack     | `arc pack`, the same zip `arc deploy` uploads                                                 |
-| Release  | Creates a GitHub release with the zip; a prerelease version goes to `staging`                 |
+| Step     | What happens                                                                                                      |
+| -------- | ----------------------------------------------------------------------------------------------------------------- |
+| Validate | `arc validate`, with the same rules Arcadible uses, and checks that the tag matches `version`                     |
+| Install  | Installs your dependencies from your lockfile, when there's a build                                               |
+| Build    | `arc build`, which runs your project's build                                                                      |
+| Pack     | `arc pack`, the same zip `arc deploy` uploads                                                                     |
+| Release  | Creates a GitHub release with the zip, published once the zip is attached; a prerelease version goes to `staging` |
 
 The Arcadible GitHub App picks up the release and publishes it, and its result shows as a check on the tagged commit, in Studio, and by email.
 
