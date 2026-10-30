@@ -48,20 +48,23 @@ jobs:
     env:
       ARC_PUBLIC: ${{ github.workspace }}/${{ needs.setup.outputs.deploy_dir }}
       ARC_ZIP: ${{ github.workspace }}/${{ github.event.repository.name }}-v${{ needs.setup.outputs.version }}.zip
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Setup Corepack
+        if: needs.setup.outputs.cache == 'pnpm' || needs.setup.outputs.cache == 'yarn'
+        run: corepack enable
       - name: Setup Node (cached)
         if: needs.setup.outputs.cache != ''
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: ${{ needs.setup.outputs.cache }}
-      - name: Setup Node
-        if: needs.setup.outputs.cache == ''
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
       - name: Install
         run: |
           npm install -g @arcadible/github-release-tools@^1.0.0 --silent
