@@ -82,17 +82,17 @@ jobs:
           ARCWF_PUBLIC: ${{ github.workspace }}/${{ needs.setup.outputs.deploy_dir }}
         run: arctool-assert-dir "$ARCWF_PUBLIC"
       - name: Pack
+        id: pack
         env:
           ARCWF_ZIP: ${{ github.workspace }}/${{ github.event.repository.name }}-v${{ needs.setup.outputs.version }}.zip
-        run: arc pack -C "$GITHUB_WORKSPACE" --output "$ARCWF_ZIP" --quiet
+        run: |
+          arc pack -C "$GITHUB_WORKSPACE" --output "$ARCWF_ZIP" --quiet
+          arctool-put-artifact "$ARCWF_ZIP"
       - name: Upload
         uses: actions/upload-artifact@v4
-        env:
-          ARCWF_ZIP: ${{ github.workspace }}/${{ github.event.repository.name }}-v${{ needs.setup.outputs.version }}.zip
         with:
           name: dist
-          path: ${{ env.ARCWF_ZIP }}
-          if-no-files-found: error
+          path: ${{ steps.pack.outputs.artifact }}
   publish:
     needs: [setup, build]
     runs-on: ubuntu-latest
