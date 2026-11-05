@@ -10,7 +10,7 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     env:
-      ARC_JSON: ${{ github.workspace }}/arcadible.json
+      ARCWF_JSON: ${{ github.workspace }}/arcadible.json
     outputs:
       version: ${{ steps.define.outputs.version }}
       prerelease: ${{ steps.define.outputs.prerelease }}
@@ -31,23 +31,21 @@ jobs:
       - name: Validate
         run: arc validate -C "$GITHUB_WORKSPACE" --quiet
       - name: Inspect
-        run: arc inspect -C "$GITHUB_WORKSPACE" > "$ARC_JSON" --json
+        run: arc inspect -C "$GITHUB_WORKSPACE" > "$ARCWF_JSON" --json
       - name: Assert Tag
-        run: arctool-assert-tag "$ARC_JSON" "$GITHUB_REF_NAME"
+        run: arctool-assert-tag "$ARCWF_JSON" "$GITHUB_REF_NAME"
       - name: Define
         id: define
         run: |
-          arctool-put-version "$ARC_JSON"
-          arctool-put-prerelease "$ARC_JSON"
-          arctool-put-build "$ARC_JSON"
-          arctool-put-deploy-dir "$ARC_JSON"
-          arctool-put-cache "$ARC_JSON"
+          arctool-put-version "$ARCWF_JSON"
+          arctool-put-prerelease "$ARCWF_JSON"
+          arctool-put-build "$ARCWF_JSON"
+          arctool-put-deploy-dir "$ARCWF_JSON"
+          arctool-put-cache "$ARCWF_JSON"
   build:
     needs: [setup]
     runs-on: ubuntu-latest
     env:
-      ARC_PUBLIC: ${{ github.workspace }}/${{ needs.setup.outputs.deploy_dir }}
-      ARC_ZIP: ${{ github.workspace }}/${{ github.event.repository.name }}-v${{ needs.setup.outputs.version }}.zip
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
     steps:
       - name: Checkout
@@ -76,25 +74,32 @@ jobs:
         if: needs.setup.outputs.build != ''
         run: arc build -C "$GITHUB_WORKSPACE" --quiet
       - name: Assert Dir
-        run: arctool-assert-dir "$ARC_PUBLIC"
+        env:
+          ARCWF_PUBLIC: ${{ github.workspace }}/${{ needs.setup.outputs.deploy_dir }}
+        run: arctool-assert-dir "$ARCWF_PUBLIC"
       - name: Pack
-        run: arc pack -C "$GITHUB_WORKSPACE" --output "$ARC_ZIP" --quiet
+        env:
+          ARCWF_ZIP: ${{ github.workspace }}/${{ github.event.repository.name }}-v${{ needs.setup.outputs.version }}.zip
+        run: arc pack -C "$GITHUB_WORKSPACE" --output "$ARCWF_ZIP" --quiet
       - name: Upload
         uses: actions/upload-artifact@v4
+        env:
+          ARCWF_ZIP: ${{ github.workspace }}/${{ github.event.repository.name }}-v${{ needs.setup.outputs.version }}.zip
         with:
           name: dist
-          path: ${{ env.ARC_ZIP }}
+          path: ${{ env.ARCWF_ZIP }}
+          if-no-files-found: error
   publish:
     needs: [setup, build]
     runs-on: ubuntu-latest
     env:
-      ARC_DIST: ${{ github.workspace }}/.arcadible-dist
+      ARCWF_DIST: ${{ github.workspace }}/.arcadible-dist
     steps:
       - name: Download
         uses: actions/download-artifact@v4
         with:
           name: dist
-          path: ${{ env.ARC_DIST }}
+          path: ${{ env.ARCWF_DIST }}
       - name: Release
         id: release
         uses: arcadible/release-action@v3
@@ -103,9 +108,9 @@ jobs:
           target_commitish: ${{ github.sha }}
           prerelease: ${{ needs.setup.outputs.prerelease }}
           draft: true
-          files: ${{ env.ARC_DIST }}/*
+          files: ${{ env.ARCWF_DIST }}/*
       - name: Publish
         env:
-          ARC_RELEASE: ${{ steps.release.outputs.id }}
+          ARCWF_RELEASE: ${{ steps.release.outputs.id }}
           GH_TOKEN: ${{ github.token }}
-        run: gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$ARC_RELEASE" -F draft=false --silent
+        run: gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$ARCWF_RELEASE" -F draft=false --silent
